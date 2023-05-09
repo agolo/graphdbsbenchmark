@@ -8,6 +8,8 @@ public class Neo4JConstants {
 
     // PARAMETERS
     public static final String NAME = "name";
+    public static final String NAME_PARAM_PLACEHOLDER = "${name}";
+    public static final String TYPE_PARAM_PLACEHOLDER = "${type}";
 
     // NODES
     public static final String PERSON = "Person";
@@ -24,8 +26,8 @@ public class Neo4JConstants {
 
 
     // QUERIES
-    public static final String CREATE_PERSON = "CREATE (newNode:Person {name: $name})";
-    public static final String CREATE_CITY = "CREATE (newNode:City {name: $name})";
-    public static final String CREATE_COUNTRY = "CREATE (newNode:Country {name: $name})";
-    public static final String CREATE_ORGANIZATION = "CREATE (newNode:Organization {name: $name})";
+    public static final String CREATE_NODE_QUERY_TEMPLATE = "CREATE (newNode:${type} {name: ${name}})";
+
+    public static final String MATCH_RANDOM_NODE_QUERY_TEMPLATE = "MATCH (n:${type}) MATCH (n) RETURN n ORDER BY RAND() LIMIT 1";
+    public static final String CONNECT_NODES_QUERY_TEMPLATE = "MATCH (s:${sourceType} {name: $sourceName}), (d:${destinationType} {name: $destinationName}) CREATE (s)-[:${relationshipName}]->(d)";
 }

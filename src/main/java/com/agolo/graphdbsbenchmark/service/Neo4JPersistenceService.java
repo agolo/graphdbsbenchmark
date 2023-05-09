@@ -2,6 +2,7 @@ package com.agolo.graphdbsbenchmark.service;
 
 import com.github.javafaker.Faker;
 import org.neo4j.driver.*;
+import org.neo4j.driver.Record;
 import org.neo4j.driver.types.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,10 +12,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static com.agolo.graphdbsbenchmark.service.MetricsLoggingUtil.*;
 import static com.agolo.graphdbsbenchmark.service.Neo4JConstants.*;
-import static org.neo4j.driver.Values.parameters;
 
 @Service
 public class Neo4JPersistenceService {
@@ -23,7 +24,7 @@ public class Neo4JPersistenceService {
 
     private final Neo4jClient neo4jClient;
 
-    private static final long NUM_RECORDS = 30000L;
+    private static final long NUM_ENTITIES = 30000L;
     private static final int SAMPLE_SIZE = 100;
 
     private final Faker faker;
@@ -42,30 +43,23 @@ public class Neo4JPersistenceService {
         List<Long> durations = new ArrayList<>();
 
         try (Session session = driver.session()) {
-            logger.info("Creating {} records", NUM_RECORDS);
-            createRecords(startTime, durations, session);
+            logger.info("Creating {} records", NUM_ENTITIES);
+            createEntities(startTime, durations, session);
+            createRelationships(startTime, durations, session);
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
             driver.close();
         }
 
-        logGraphCreationMetrics(logger, NUM_RECORDS, startTime, durations);
+        logGraphCreationMetrics(logger, NUM_ENTITIES, startTime, durations);
 
     }
 
-    private void createRecords(long startTime, List<Long> durations, Session session) {
-        System.out.println("Creating " + NUM_RECORDS + " records");
-        for (int i = 0; i < NUM_RECORDS; i++) {
-
-            boolean shouldCreateEntity = faker.bool().bool() && i>40;
-            String randomRelationship = faker.options().option(relationshipTypes);
-
-            if (shouldCreateEntity) {
-                createNewEntityAndLink(session, randomRelationship);
-            } else {
-                linkExistingNodes(session, randomRelationship);
-            }
+    private void createEntities(long startTime, List<Long> durations, Session session) {
+        System.out.println("Creating " + NUM_ENTITIES + " entities");
+        for (int i = 0; i < NUM_ENTITIES; i++) {
+            createFakeNode(session);
 
             if(i % SAMPLE_SIZE == 0) {
                 logSampleMetrics(logger, i, startTime, durations);
@@ -73,81 +67,77 @@ public class Neo4JPersistenceService {
         }
     }
 
-    private void createNewEntityAndLink(Session session, String relationshipType) {
-        String entityName = fakeEntity(session);
-        link(session, relationshipType, entityName);
-    }
-
-    private String fakeEntity(Session session) {
-        String entityName = "";
+    private void createFakeNode(Session session) {
         String entityType = faker.options().option(nodeTypes);
         switch (entityType) {
             case PERSON:
-                entityName = faker.name().fullName();
-                session.run(CREATE_PERSON, parameters(NAME, entityName));
+                persistNode(PERSON, faker.name().fullName(), session);
                 break;
             case CITY:
-                entityName = faker.address().city();
-                session.run(CREATE_CITY, parameters(NAME, entityName));
+                persistNode(CITY, faker.address().city(), session);
                 break;
             case COUNTRY:
-                entityName = faker.address().country();
-                session.run(CREATE_COUNTRY, parameters(NAME, entityName));
+                persistNode(COUNTRY, faker.address().country(), session);
                 break;
             case ORGANIZATION:
-                entityName = faker.company().name();
-                session.run(CREATE_ORGANIZATION, parameters(NAME, entityName));
-                break;
-        }
-        return entityName;
-    }
-
-    private void linkExistingNodes(Session session, String randomRelationship) {
-        String targetEntitiesQuery = retrieveTargetEntitiesFor(randomRelationship);
-        String entityProperty = "name";
-
-        // Retrieve an existing entity from the database
-        Result targetEntitiesResult = session.run(targetEntitiesQuery);
-        List<Node> targetEntities = targetEntitiesResult.list(record -> record.get(0).asNode());
-        Node randomEntity = targetEntities.get(faker.number().numberBetween(0, targetEntities.size()));
-        String randomEntityName = randomEntity.get(entityProperty).asString();
-
-        link(session, randomRelationship, randomEntityName);
-
-    }
-
-    private void link(Session session, String randomRelationship, String entityName) {
-        // Create the relationship with the existing entity
-        switch (randomRelationship) {
-            case BORN_IN:
-                session.run("MATCH (p:Person {name: $personName}), (c:City {name: $cityName}) CREATE (p)-[:born_in]->(c)",
-                        parameters("personName", faker.name().fullName(), "cityName", entityName));
-                break;
-            case WORKS_FOR:
-                session.run("MATCH (p:Person {name: $personName}), (o:Organization {name: $orgName}) CREATE (p)-[:works_for]->(o)",
-                        parameters("personName", faker.name().fullName(), "orgName", entityName));
-                break;
-            case IN:
-                session.run("MATCH (c:City {name: $cityName}), (co:Country {name: $countryName}) CREATE (c)-[:in]->(co)",
-                        parameters("cityName", faker.address().city(), "countryName", entityName));
+                persistNode(ORGANIZATION, faker.company().name(), session);
                 break;
         }
     }
 
-    private String retrieveTargetEntitiesFor(String relationshipType) {
-        String entityQuery = "";
+    private void persistNode(String nodeType, String nodeName, Session session) {
+        String createNodeQuery = CREATE_NODE_QUERY_TEMPLATE
+                .replace(TYPE_PARAM_PLACEHOLDER, nodeType)
+                .replace(NAME_PARAM_PLACEHOLDER, "\""+ nodeName + "\"");
+        session.run(createNodeQuery);
+    }
+
+    private void createRelationships(long startTime, List<Long> durations, Session session) {
+        System.out.println("Creating relationships");
+        for (int i = 0; i < NUM_ENTITIES; i++) {
+            String randomRelationship = faker.options().option(relationshipTypes);
+            connectTwoRandomNodes(session, randomRelationship);
+
+            if(i % SAMPLE_SIZE == 0) {
+                logSampleMetrics(logger, i, startTime, durations);
+            }
+        }
+    }
+
+    private void connectTwoRandomNodes(Session session, String relationshipType) {
+
         switch (relationshipType) {
             case BORN_IN:
-                entityQuery = "MATCH (c:City) RETURN c";
+                connect(PERSON, BORN_IN, CITY, session);
                 break;
             case WORKS_FOR:
-                entityQuery = "MATCH (o:Organization) RETURN o";
+                connect(PERSON, WORKS_FOR, ORGANIZATION, session);
                 break;
             case IN:
-                entityQuery = "MATCH (co:Country) RETURN co";
+                boolean coinFlip = faker.bool().bool();
+                if (coinFlip) {
+                    connect(CITY, IN, COUNTRY, session);
+                } else {
+                    connect(ORGANIZATION, IN, COUNTRY, session);
+                }
                 break;
         }
-        return entityQuery;
+    }
+
+    private void connect(String sourceType, String relationshipName, String destinationType, Session session) {
+        String sourceQuery = MATCH_RANDOM_NODE_QUERY_TEMPLATE.replace(TYPE_PARAM_PLACEHOLDER, sourceType);
+        String destinationQuery = MATCH_RANDOM_NODE_QUERY_TEMPLATE.replace(TYPE_PARAM_PLACEHOLDER, destinationType);
+        Record sourceRecord = session.run(sourceQuery).next();
+        Record destinationRecord = session.run(destinationQuery).next();
+        Node sourceNode = sourceRecord.get("n").asNode();
+        Node destinationNode = destinationRecord.get("n").asNode();
+        String connectNodesQuery = CONNECT_NODES_QUERY_TEMPLATE
+                .replace("${sourceType}", sourceType)
+                .replace("${destinationType}", destinationType)
+                .replace("$sourceName", "\"" + sourceNode.get("name").asString() + "\"" )
+                .replace("$destinationName", "\"" + destinationNode.get("name").asString() + "\"")
+                .replace("${relationshipName}", relationshipName.toUpperCase(Locale.ROOT));
+        session.run(connectNodesQuery);
     }
 
     public String deleteGraph() {
