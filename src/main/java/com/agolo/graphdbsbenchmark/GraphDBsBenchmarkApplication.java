@@ -10,11 +10,4 @@ public class GraphDBsBenchmarkApplication {
 		SpringApplication.run(GraphDBsBenchmarkApplication.class, args);
 	}
 
-
-	/*
-	 Next Steps:
-	 - Use the new code to create new entities or link to existing entities
-	 - Implement the ArrangoDB and JanusGraph (??) services/clients
-	 - Read about benchmarking and performing load tests
-	*/
 }

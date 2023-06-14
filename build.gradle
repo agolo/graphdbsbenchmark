@@ -24,18 +24,28 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-neo4j'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 
+	// Neo4j
 	implementation "org.neo4j:neo4j-ogm-core:${neo4jVersion}"
 	implementation "org.neo4j:neo4j:${neo4jVersion}"
-
 	implementation 'org.neo4j:neo4j-graphdb-api:5.6.0'
-
 	implementation 'org.neo4j.driver:neo4j-java-driver'
+
+	// ArangoDB
+	implementation group: 'com.arangodb', name: 'arangodb-java-driver', version: '7.0.0'
+
+	// https://mvnrepository.com/artifact/com.arangodb/core
+	implementation group: 'com.arangodb', name: 'core', version: '7.0.0'
+
+	// https://mvnrepository.com/artifact/com.arangodb/arangodb-spring-data
+	implementation group: 'com.arangodb', name: 'arangodb-spring-data', version: '3.9.0'
+
+
 
 	// Reactor
 	implementation 'io.projectreactor:reactor-core'
 
 	// Faker4j
-	implementation 'com.github.javafaker:javafaker:1.0.2'
+	implementation "com.github.javafaker:javafaker:${fakerVersion}"
 
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'

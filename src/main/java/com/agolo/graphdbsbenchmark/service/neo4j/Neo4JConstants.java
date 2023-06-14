@@ -1,4 +1,4 @@
-package com.agolo.graphdbsbenchmark.service;
+package com.agolo.graphdbsbenchmark.service.neo4j;
 
 public class Neo4JConstants {
 

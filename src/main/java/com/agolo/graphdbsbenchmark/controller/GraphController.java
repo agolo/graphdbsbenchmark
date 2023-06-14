@@ -1,11 +1,8 @@
 package com.agolo.graphdbsbenchmark.controller;
 
-import com.agolo.graphdbsbenchmark.service.GraphGenerationService;
-import com.agolo.graphdbsbenchmark.service.Neo4JPersistenceService;
+import com.agolo.graphdbsbenchmark.service.neo4j.Neo4JPersistenceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -13,26 +10,22 @@ import java.util.Map;
 @RestController
 public class GraphController implements GraphAPI {
 
-    private GraphGenerationService graphGenerationService;
-
     private Neo4JPersistenceService neo4JPersistenceService;
 
     @Autowired
-    public GraphController(GraphGenerationService graphGenerationService, Neo4JPersistenceService neo4JPersistenceService) {
-        this.graphGenerationService = graphGenerationService;
+    public GraphController(Neo4JPersistenceService neo4JPersistenceService) {
         this.neo4JPersistenceService = neo4JPersistenceService;
     }
 
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> createGraph() {
-//        return ResponseEntity.ok(graphGenerationService.createGraph());
+    @Override
+    public ResponseEntity<Void> createGraph() {
         neo4JPersistenceService.initializeAndPopulateGraphWithFakeData();
-        return ResponseEntity.ok(graphGenerationService.graphRelationships());
-
+        return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping
+    @Override
     public ResponseEntity<String> deleteGraph() {
-        return ResponseEntity.ok(graphGenerationService.deleteGraph());
+        neo4JPersistenceService.deleteGraph();
+        return ResponseEntity.ok().build();
     }
 }
